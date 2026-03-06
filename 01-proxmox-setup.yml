@@ -1,0 +1,9 @@
+---
+- name: Шаг 1 - Настройка Proxmox (создание моста)
+  hosts: proxmox
+  roles:
+    - proxmox-bridge
+  vars:
+    bridge_name: vmbr1
+    bridge_ip: 10.10.1.1
+    bridge_netmask: 255.255.255.0

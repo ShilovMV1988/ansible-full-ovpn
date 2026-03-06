@@ -1,0 +1,111 @@
+---
+- name: Установка пакетов
+  apt:
+    name:
+      - openvpn
+      - easy-rsa
+      - iptables-persistent # Чтобы правила firewall сохранялись после перезагрузки
+      - ufw   #не нужно???
+    state: present
+    update_cache: yes
+
+- name: Создание директорий
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/openvpn/server
+    - /etc/openvpn/client
+    - /etc/openvpn/easy-rsa
+
+- name: Копирование easy-rsa
+  copy:
+    src: /usr/share/easy-rsa/
+    dest: /etc/openvpn/easy-rsa/
+    remote_src: yes
+
+- name: Генерация сертификатов (PKI, CA, сервер, клиент)
+  shell: |
+    cd /etc/openvpn/easy-rsa
+    
+    # Инициализация PKI
+    ./easyrsa init-pki   # Создаем пустую папку для паспортов
+    
+    # Создание CA (без пароля) (чтобы Ansible мог автоматизировать)
+    echo "{{ ca_common_name }}" | ./easyrsa build-ca nopass 
+  #./roles/openvpn-server/vars/main.yml:2:ca_common_name: "OpenVPN-CA". nopass для автоматизации  ansible, в другом случае так делать НЕ НУЖНО! Для действий с центром сертификации. Создает ОТКРЫЙ КЛЮЧ удостоверяющего центра  /etc/openvpn/easy-rsa/pki/ca.crt
+
+    # Генерация сертификата сервера
+    ./easyrsa gen-req server nopass # Создает сертификат для нашего сервера OVPN  
+    echo "yes" | ./easyrsa sign-req server server #С помощью echo "yes" автоматизировано под Ansible, подписываем запрос на создание сертификата. И получаем сертификат /etc/openvpn/easy-rsa/pki/issued/server.crt
+    
+    # Генерация DH параметров
+    ./easyrsa gen-dh
+    
+    # Генерация сертификата клиента
+    ./easyrsa gen-req client nopass #Создает сертификат для нашего клиента OVPN, машины VM2 c веб сервером   
+    echo "yes" | ./easyrsa sign-req client client #С помощью echo "yes" автоматизировано под Ansible, подписываем запрос на создание сертификата. И получаем сертификат /etc/openvpn/easy-rsa/pki/issued/client.crt
+    
+    # Генерация TLS ключа
+    cd /etc/openvpn/server
+  openvpn --genkey --secret ta.key # Создаем дополнительный публичный  TLS  ключ для защиты между клиентом и сервером  
+  args:
+    creates: /etc/openvpn/easy-rsa/pki/ca.crt
+  register: cert_gen
+
+- name: Копирование сертификатов в рабочую директорию
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: yes
+    mode: "{{ item.mode }}"
+  loop:
+    - { src: '/etc/openvpn/easy-rsa/pki/ca.crt', dest: '/etc/openvpn/server/ca.crt', mode: '0644' }                     # Открытый ключ центра сертификации
+    - { src: '/etc/openvpn/easy-rsa/pki/issued/server.crt', dest: '/etc/openvpn/server/server.crt', mode: '0644' }   # Сгенерированный и подписанный сертификат сервера OVPN
+    - { src: '/etc/openvpn/easy-rsa/pki/private/server.key', dest: '/etc/openvpn/server/server.key', mode: '0600' }
+    - { src: '/etc/openvpn/easy-rsa/pki/dh.pem', dest: '/etc/openvpn/server/dh.pem', mode: '0644' }
+    - { src: '/etc/openvpn/server/ta.key', dest: '/etc/openvpn/server/ta.key', mode: '0600' }                          #Публичный TLS ключ сервера OPVPN
+
+- name: Подготовка сертификатов для клиента
+  fetch:
+    src: "{{ item.src }}"
+    dest: "{{ playbook_dir }}/files/certs/{{ item.dest }}" 
+    flat: yes
+  loop:
+    - { src: '/etc/openvpn/server/ca.crt', dest: 'ca.crt' }                                                            # Открытый ключ центра сертификации
+    - { src: '/etc/openvpn/easy-rsa/pki/issued/client.crt', dest: 'client.crt' }                                     # Сгенерированный и подписанный сертификат клиента  OVPN
+    - { src: '/etc/openvpn/easy-rsa/pki/private/client.key', dest: 'client.key' }
+    - { src: '/etc/openvpn/server/ta.key', dest: 'ta.key' }                                                             #Публичный TLS ключ сервера OPVPN
+
+- name: Настройка конфигурации OpenVPN сервера
+  template:
+    src: server.conf.j2
+    dest: /etc/openvpn/server.conf
+    mode: '0644'
+  notify: restart openvpn
+
+- name: Включение IP форвардинга
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    permanent: yes
+    reload: yes
+
+- name: Настройка iptables (NAT и проброс портов)
+  template:
+    src: iptables.sh.j2
+    dest: /etc/network/if-up.d/openvpn-iptables
+    mode: '0755'
+  notify: apply iptables
+
+- name: Применение iptables правил
+  shell: /etc/network/if-up.d/openvpn-iptables
+  when: ansible_default_ipv4.address is defined
+
+- name: Запуск OpenVPN сервера
+  systemd:
+    name: openvpn@server
+    enabled: yes
+    state: started

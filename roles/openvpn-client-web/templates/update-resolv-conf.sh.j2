@@ -1,0 +1,21 @@
+#!/bin/bash
+# Скрипт для обновления DNS при подключении VPN
+
+case $script_type in
+up)
+    # Сохраняем старые настройки DNS
+    cp /etc/resolv.conf /etc/resolv.conf.backup
+    # Устанавливаем новые DNS
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+    
+    # Добавляем маршрут для обратной связи с Ansible
+    ip route add {{ internal_network }} via {{ internal_gateway }} dev eth0
+    ;;
+down)
+    # Восстанавливаем старые настройки DNS
+    if [ -f /etc/resolv.conf.backup ]; then
+        cp /etc/resolv.conf.backup /etc/resolv.conf
+    fi
+    ;;
+esac

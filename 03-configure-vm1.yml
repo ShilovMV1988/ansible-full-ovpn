@@ -1,0 +1,9 @@
+---
+- name: Шаг 3 - Настройка VM1 (OpenVPN сервер)
+  hosts: vm1
+  gather_facts: yes
+  roles:
+    - openvpn-server
+  vars:
+    internal_interface: eth1
+    public_interface: eth0

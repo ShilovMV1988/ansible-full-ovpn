@@ -1,0 +1,10 @@
+---
+- name: restart openvpn-client
+  systemd:
+    name: openvpn@client
+    state: restarted
+
+- name: restart nginx
+  systemd:
+    name: nginx
+    state: restarted

@@ -1,0 +1,38 @@
+# OpenVPN клиент с сертификатами
+client
+dev tun
+proto udp
+
+# Адрес сервера
+remote {{ internal_gateway }} 1194
+
+# Параметры подключения
+resolv-retry infinite
+nobind
+
+# Права
+user nobody
+group nogroup
+
+# Persist
+persist-key
+persist-tun
+
+# Сертификаты
+ca /etc/openvpn/client/ca.crt
+cert /etc/openvpn/client/client.crt
+key /etc/openvpn/client/client.key
+
+# Безопасность
+tls-auth /etc/openvpn/client/ta.key 1
+cipher AES-256-CBC
+auth SHA256
+remote-cert-tls server
+
+# Скрипты
+script-security 2
+up /etc/openvpn/update-resolv-conf
+down /etc/openvpn/update-resolv-conf
+
+# Логи
+verb 3

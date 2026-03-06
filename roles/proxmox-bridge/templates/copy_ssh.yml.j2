@@ -1,0 +1,15 @@
+#cloud-config
+
+runcmd:
+  # Создаем директорию .ssh, если её нет
+  - mkdir -p /home/max/.ssh
+  
+  # Добавляем публичный ключ в authorized_keys
+  - echo ""ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDNTJn3k3Z7h8AuwEMblVR7sK25mB5LV8J2wiofiVQQQ8KqP/BDO3YSvWDKjNu8vDINZt4F8YJ0EHdFyVG5z29vx01+v/za6R/KuYJmmUZNyWQgY87o/ySZoYb8ggTTtN4k7NZL4RexSWGWuzEmIihlFM2LFHbjVjVuy+AP5SpRyqh2EPY7CntfxhJOWidjnF4z4FjtxJLUKw9eR6RweVoN/gCA9TexLIOCbu0yyFClQ7KCoAIM9w6ay3CM0PoyTVnO8TQO0MVWgWHa494B1ur6biJOXf1XgzG8W/rlm48LAAvtahVbMgOBo0U7D7dksx6EAGTfm2NqdfkGPRvRPEfaSArsXtJN61dqsvPjK63OUW6o64Zd945Xvq2FXYVDKBEg3tu/yTZgHneDbt/oNVXvm+48eZpLmJNiw/IwzN8uX97QLv2438WvKdN9WOMKFQzjRRQcNetFoBIr0ADmh/8QWETeE6kqswoW0jNNtHrwttJBma0d1WMwVPXJxVLSlMKw7NgyRXTJuXHhUTHXTRMuQhyy0RKanjb8pPRDDWh/S5UrApAdWoLUO7EEkDgWFD45NOBDXJUoZBrDQKlT+433LInaOrTnDsUQnZrFgKsguBQjbPrYdM4NBPu7kBcQefOZywK/0+hxPGZS7qdmPKuhuIv9E9HORg2qMWUXU1GLRw== mshilov@acer >> /home/max/.ssh/authorized_keys
+  
+  # Устанавливаем правильные права
+  - chmod 700 /home/max/.ssh
+  - chmod 600 /home/max/.ssh/authorized_keys
+  
+  # Меняем владельца (если пользователь max уже существует или будет создан)
+  - chown -R max:max /home/max/.ssh

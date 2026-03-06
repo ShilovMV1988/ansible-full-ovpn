@@ -1,0 +1,8 @@
+---
+- name: restart openvpn
+  systemd:
+    name: openvpn@server
+    state: restarted
+
+- name: apply iptables
+  shell: /etc/network/if-up.d/openvpn-iptables

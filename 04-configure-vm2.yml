@@ -1,0 +1,8 @@
+---
+- name: Шаг 4 - Настройка VM2 (клиент + веб-сервер)
+  hosts: vm2
+  gather_facts: yes
+  roles:
+    - openvpn-client-web
+  vars:
+    internal_gateway: 10.10.1.10

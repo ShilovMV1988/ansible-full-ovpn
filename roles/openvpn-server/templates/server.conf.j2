@@ -1,0 +1,42 @@
+# OpenVPN сервер с сертификатами
+port 1194
+proto udp
+dev tun
+
+# Сертификаты
+ca /etc/openvpn/server/ca.crt
+cert /etc/openvpn/server/server.crt
+key /etc/openvpn/server/server.key
+dh /etc/openvpn/server/dh.pem
+
+# Сеть VPN
+server {{ vpn_network.split('/')[0] }} 255.255.255.0
+ifconfig-pool-persist /var/log/openvpn/ipp.txt
+
+# Настройки для клиентов
+push "redirect-gateway def1"
+push "dhcp-option DNS 8.8.8.8"
+push "dhcp-option DNS 8.8.4.4"
+
+# Безопасность
+tls-auth /etc/openvpn/server/ta.key 0
+cipher AES-256-CBC
+auth SHA256
+tls-version-min 1.2
+
+# Keepalive
+keepalive 10 120
+
+# Права
+user nobody
+group nogroup
+
+# Persist
+persist-key
+persist-tun
+
+# Логи
+status /var/log/openvpn/openvpn-status.log
+log-append /var/log/openvpn/openvpn.log
+verb 3
+explicit-exit-notify 1

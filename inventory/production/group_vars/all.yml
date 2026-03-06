@@ -1,0 +1,30 @@
+# Внутренняя сеть
+internal_network: 10.10.1.0/24      # Диапазон адресов внутренней сети
+internal_gateway: 10.10.1.1         # Адрес шлюза (ворот) внутренней сети
+internal_netmask: 255.255.255.0     # Маска сети (как разделить адреса)
+
+# VPN сеть
+vpn_network: 10.8.0.0/24            # Диапазон адресов VPN туннеля
+vpn_server_ip: 10.8.0.1             # Адрес VPN сервера (VM1 в туннеле)
+vpn_client_ip: 10.8.0.2             # Адрес VPN клиента (VM2 в туннеле)
+
+# Параметры виртуальных машин
+bridge_netmask: 24                  # Изначально было 255.255.255.0, но как выяснилось команда qm понимает только сокращенный вариант
+vm1_id: 110                         # ID первой VM в Proxmox
+vm2_id: 111                         # ID второй VM в Proxmox
+vm1_name: vm1-gateway
+vm2_name: vm2-webserver
+vm1_public_ip: dhcp
+vm1_internal_ip: 10.10.1.10         # IP VM1 во внутренней сети
+vm2_internal_ip: 10.10.1.20         # IP VM2 во внутренней сети
+vm_memory: 4048                      # Память (1024 MB = 1 GB)
+vm_cores: 2                          # Процессорных ядер
+vm_storage: local-lvm
+vm_template: debian-13-template  # предварительно созданный шаблон
+
+# 👇 Proxmox параметры (добавляем)
+#proxmox_host: 192.168.88.161
+#proxmox_user: root
+
+# 👇 SSH настройки для доступа к VM через Proxmox
+#ansible_ssh_common_args: '-o ProxyJump={{ proxmox_user }}@{{ proxmox_host }}'

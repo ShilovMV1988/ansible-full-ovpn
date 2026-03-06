@@ -1,0 +1,85 @@
+---
+- name: Создание VM1 (шлюз)
+  shell: |
+    # Проверка существования VM
+    if qm status {{ vm1_id }} >/dev/null 2>&1; then
+      echo "VM {{ vm1_id }} уже существует"
+      exit 0
+    fi
+    
+    # Создание VM
+    qm clone {{ vm_template_id }} {{ vm1_id }} --name {{ vm1_name }} --full
+
+    # Выделение ресурсов и сетевых адаптеров 
+    qm set {{ vm1_id }} --memory {{ vm_memory }} --cores {{ vm_cores }}
+    qm set {{ vm1_id }} --net0 virtio,bridge=vmbr0
+    qm set {{ vm1_id }} --net1 virtio,bridge={{ bridge_name }}
+     
+    # Настройка cloud-init
+    # qm set {{ vm1_id }} --ide2 {{ vm_storage }}:cloudinit #если в шаблоне уже есть жто, но не нужно. Этот ключ монтирует cdrom в который кладутся параметры cloud-init и применябтся при запуске ОС
+    qm set {{ vm1_id }}  --bootdisk scsi0 #Сделать загрузочным диск scsi0
+    # qm set {{ vm1_id }} --serial0 socket --vga serial0 #и без этого рабоатет!)))
+    
+    # Настройка IP через cloud-init
+    qm set {{ vm1_id }} --ipconfig0 ip={{ vm1_public_ip }}
+    qm set {{ vm1_id }} --ipconfig1 ip={{ vm1_internal_ip }}/{{ bridge_netmask }}
+    qm set {{ vm1_id }} --sshkeys /root/.ssh/id_rsa.pub #{{ ssh_key_file }}
+    qm set {{ vm1_id }} --ciuser max
+    
+    # Запуск VM
+    qm start {{ vm1_id }}
+  args:
+    executable: /bin/bash
+  register: vm1_create
+
+- name: Создание VM2 (веб-сервер)
+  shell: |
+    # Проверка существования VM
+    if qm status {{ vm2_id }} >/dev/null 2>&1; then
+      echo "VM {{ vm2_id }} уже существует"
+      exit 0
+    fi
+    
+    # Создание VM
+    qm clone {{ vm_template_id }} {{ vm2_id }} --name {{ vm2_name }} --full
+
+    # Выделение ресурсов и сетевых адаптеров
+    qm set {{ vm2_id }} --memory {{ vm_memory }} --cores {{ vm_cores }}
+    qm set {{ vm2_id }} --net0 virtio,bridge=vmbr0                            # ВРЕМЕННО!!!!
+    qm set {{ vm2_id }} --net1 virtio,bridge={{ bridge_name }}
+    # Настройка cloud-init
+    # qm set {{ vm2_id }} --ide2 {{ vm_storage }}:cloudinit #если в шаблоне уже есть жто, но не нужно. Этот ключ монтирует cdrom в который кладутся параметры cloud-init и применябтся при запуске ОС
+    qm set {{ vm2_id }}  --bootdisk scsi0 #Сделать загрузочным диск scsi0
+    # qm set {{ vm2_id }} --serial0 socket --vga serial0 #и без этого рабоатет!)))
+    #qm set {{ vm2_id }} --delete ipconfig0 || true  #Удаляем старые настройки если они остались!
+    # Настройка IP через cloud-init
+    qm set {{ vm2_id }} --ipconfig0 ip={{ vm1_public_ip }}                                                         #ВРЕМЕННО
+
+    qm set {{ vm2_id }} --ipconfig1 ip={{ vm2_internal_ip }}/{{ bridge_netmask }},qw={{ vm1_internal_ip }}
+    qm set {{ vm2_id }} --sshkeys /root/.ssh/id_rsa.pub #{{ ssh_key_file }}
+    qm set {{ vm2_id }} --ciuser max
+    
+    # Запуск VM
+    qm start {{ vm2_id }}
+  args:
+    executable: /bin/bash
+  register: vm2_create
+
+- name: Ожидание запуска VM
+  pause:
+    seconds: 30
+
+- name: Получение IP адресов VM
+  shell: |
+    qm guest cmd {{ item }} network-get-interfaces | grep -A5 '"name": "eth0"' | grep '"ip-address"' | head -1 | cut -d'"' -f4
+  loop:
+    - "{{ vm1_id }}"
+    - "{{ vm2_id }}"
+  register: vm_ips
+  ignore_errors: yes
+
+- name: Вывод информации о VM
+  debug:
+    msg:
+      - "VM1 ({{ vm1_name }}) создана с IP: {{ vm1_internal_ip }}"
+      - "VM2 ({{ vm2_name }}) создана с IP: {{ vm2_internal_ip }}"

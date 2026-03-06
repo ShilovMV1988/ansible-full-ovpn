@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VM2 Web Server</title>
+    <style>
+        body { 
+            font-family: 'Arial', sans-serif; 
+            text-align: center; 
+            margin-top: 100px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            display: inline-block;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .success {
+            color: #4ade80;
+            font-weight: bold;
+        }
+        .info {
+            background: rgba(255,255,255,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .ip-box {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✓ <span class="success">УСПЕХ!</span></h1>
+        <h2>Вы подключились к VM2 через OpenVPN</h2>
+        
+        <div class="info">
+            <h3>Информация о подключении:</h3>
+            <p class="ip-box">
+                VM2 (веб-сервер): <strong>{{ vpn_client_ip }}</strong> (VPN)<br>
+                VM1 (шлюз): <strong>{{ vpn_server_ip }}</strong> (VPN)<br>
+                Проброс порта: <strong>446 → 443</strong><br>
+                Дата: {{ ansible_date_time.date }}
+            </p>
+        </div>
+        
+        <p>Весь трафик с VM2 идет через VM1 (проверьте traceroute)</p>
+        <p><small>Сертификаты OpenVPN успешно настроены</small></p>
+    </div>
+</body>
+</html>

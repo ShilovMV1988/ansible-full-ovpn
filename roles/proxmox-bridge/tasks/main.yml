@@ -1,0 +1,27 @@
+---
+- name: Проверка существования моста
+  shell: "ip link show {{ bridge_name }}"
+  register: bridge_check
+  ignore_errors: yes
+
+#- name: вывод результата 
+#  debug: 
+#    var: bridge_check
+
+- name: Создание моста vmbr1 через Proxmox API
+  shell: |
+    pvesh create /nodes/{{ ansible_hostname }}/network \
+      --iface {{ bridge_name }} \
+      --type bridge \
+      --autostart 1 \
+      --cidr {{ bridge_ip }}/24
+    pvesh set /nodes/{{ ansible_hostname }}/network
+  when: bridge_check.rc != 0
+
+
+- name: Копирования yml файла cloud-init для проброса ssh ключа ноутбука на конечные ВМ, создаваемые в Proxmox
+  template:
+    src: copy_ssh.yml.j2
+    dest: /var/lib/vz/snippets/ssh_copy.yml
+    mode: '0644'
+
