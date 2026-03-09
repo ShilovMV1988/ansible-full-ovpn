@@ -1,0 +1,52 @@
+---
+- name: ПОЛНОЕ РАЗВЕРТЫВАНИЕ INFRASTRUCTURE
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Запуск настройки Proxmox
+      debug:
+        msg: "Начинаем развертывание..."
+        
+- import_playbook: 01-proxmox-setup.yml
+- import_playbook: 02-create-vms.yml
+
+- name: Ожидание инициализации VM
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Пауза 60 секунд для загрузки VM
+      pause:
+        seconds: 60
+        
+- import_playbook: 03-configure-vm1.yml
+
+- name: Ожидание настройки VPN сервера
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Пауза 30 секунд
+      pause:
+        seconds: 30
+        
+- import_playbook: 04-configure-vm2.yml
+
+- name: Финальная проверка
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - name: Проверка доступности VM1:446
+      uri:
+        url: http://10.10.1.10:446
+        method: GET
+        status_code: 200
+        timeout: 10
+      register: web_check
+      ignore_errors: yes
+      
+    - name: Результат проверки
+      debug:
+        msg: 
+          - "==================================="
+          - "ТЕСТ 1: {{ '✓ ПРОЙДЕН' if web_check is success else '✗ НЕ ПРОЙДЕН' }}"
+          - "Откройте в браузере: http://10.10.1.10:446"
+          - "==================================="

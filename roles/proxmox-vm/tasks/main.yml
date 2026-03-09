@@ -1,14 +1,6 @@
 ---
 - name: Создание VM1 (шлюз)
   shell: |
-
-
-
-qm set 106 --net0 virtio,bridge=vmbr1
-qm set 106 --ipconfig0 ip=10.10.1.40/24
-qm set 106 --bootdisk scsi0
-qm set 106 --ciuser max --cipassword qwe123
-qm set 106 --cicustom "user=local:snippets/ssh_copy.yml"
     # Проверка существования VM
     if qm status {{ vm1_id }} >/dev/null 2>&1; then
       echo "VM {{ vm1_id }} уже существует"
@@ -25,15 +17,15 @@ qm set 106 --cicustom "user=local:snippets/ssh_copy.yml"
      
     # Настройка cloud-init
     # qm set {{ vm1_id }} --ide2 {{ vm_storage }}:cloudinit #если в шаблоне уже есть жто, но не нужно. Этот ключ монтирует cdrom в который кладутся параметры cloud-init и применябтся при запуске ОС
-    qm set {{ vm1_id }}  --bootdisk scsi0 #Сделать загрузочным диск scsi0
-    # qm set {{ vm1_id }} --serial0 socket --vga serial0 #и без этого рабоатет!)))
+    qm set {{ vm1_id }} --bootdisk scsi0 #Сделать загрузочным диск scsi0
+    qm set {{ vm1_id }} --serial0 socket --vga serial0 #и без этого рабоатет!)))
     
     # Настройка IP через cloud-init
     qm set {{ vm1_id }} --ipconfig0 ip={{ vm1_public_ip }}
     qm set {{ vm1_id }} --ipconfig1 ip={{ vm1_internal_ip }}/{{ bridge_netmask }}
-    #qm set {{ vm1_id }} --sshkeys /root/.ssh/id_rsa.pub #{{ ssh_key_file }}
+          # qm set {{ vm1_id }} --sshkeys /root/.ssh/id_rsa.pub #{{ ssh_key_file }}
     qm set {{ vm1_id }} --ciuser max --cipassword qwe123
-    qm set {{ vm1_id }} --cicustom "user=local:snippets/ssh_copy.yml"
+    qm set {{ vm1_id }} --cicustom "user=local:snippets/ssh_copy.yml"   #cloud-init файл, который пробрасывает ssh ключ в гостевые виртуальные машины  
     
     # Запуск VM
     qm start {{ vm1_id }}
@@ -48,26 +40,21 @@ qm set 106 --cicustom "user=local:snippets/ssh_copy.yml"
       echo "VM {{ vm2_id }} уже существует"
       exit 0
     fi
-    
+
     # Создание VM
     qm clone {{ vm_template_id }} {{ vm2_id }} --name {{ vm2_name }} --full
 
     # Выделение ресурсов и сетевых адаптеров
     qm set {{ vm2_id }} --memory {{ vm_memory }} --cores {{ vm_cores }}
-    qm set {{ vm2_id }} --net1 virtio,bridge={{ bridge_name }}
+    qm set {{ vm2_id }} --net0 virtio,bridge=vmbr1 #{{ bridge_name }}
     # Настройка cloud-init
-    # qm set {{ vm2_id }} --ide2 {{ vm_storage }}:cloudinit #если в шаблоне уже есть жто, но не нужно. Этот ключ монтирует cdrom в который кладутся параметры cloud-init и применябтся при запуске ОС
-    qm set {{ vm2_id }}  --bootdisk scsi0 #Сделать загрузочным диск scsi0
-    # qm set {{ vm2_id }} --serial0 socket --vga serial0 #и без этого рабоатет!)))
-    #qm set {{ vm2_id }} --delete ipconfig0 || true  #Удаляем старые настройки если они остались!
+    qm set {{ vm2_id }} --bootdisk scsi0                   #Сделать загрузочным диск scsi0
+    qm set {{ vm2_id }} --serial0 socket --vga serial0     #и без этого рабоатет!)))
     # Настройка IP через cloud-init
+    qm set 111 --ipconfig0 ip=10.10.1.20/24,qw=10.10.1.10   # ЭТА СТРОКА НЕ СРАБАТЫВАЕТ!!! ip={{ vm2_internal_ip }}/{{ bridge_netmask }},qw={{ vm1_internal_ip }}
+    qm set {{ vm2_id }} --ciuser max  --cipassword qwe123
+    qm set {{ vm2_id }} --cicustom "user=local:snippets/ssh_copy.yml"   #cloud-init файл, который пробрасывает ssh ключ в гостевые виртуальные машины 
 
-    qm set {{ vm2_id }} --ipconfig1 ip={{ vm2_internal_ip }}/{{ bridge_netmask }},qw={{ vm1_internal_ip }}
-   # qm set {{ vm2_id }} --sshkeys /root/.ssh/id_rsa.pub #{{ ssh_key_file }}
-    qm set {{ vm2_id }} --ciuser max --cipassword qwe123
-    qm set {{ vm2_id }} --cicustom "user=local:snippets/ssh_copy.yml"
-
-    
     # Запуск VM
     qm start {{ vm2_id }}
   args:
