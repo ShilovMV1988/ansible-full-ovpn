@@ -113,3 +113,35 @@
     name: openvpn@server
     enabled: yes
     state: started
+
+# roles/openvpn-server/tasks/download-packages.yml
+- name: Создание директории для пакетов на VM1
+  file:
+    path: /tmp/openvpn-packages
+    state: directory
+
+- name: Обновление кэша пакетов на VM1
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Скачивание пакетов OpenVPN и зависимостей на VM1
+  shell: |
+    cd /tmp/openvpn-packages
+    apt-get download \
+      openvpn \
+      debconf \
+      libc6 \
+      libcap-ng0 \
+      liblz4-1 \
+      liblzo2-2 \
+      libnl-3-200 \
+      libnl-genl-3-200 \
+      libpam0g \
+      libpkcs11-helper1t64 \
+      libssl3t64 \
+      libsystemd0 
+      
+  args:
+    creates: /tmp/openvpn-packages/openvpn*.deb
+  register: packages_downloaded
