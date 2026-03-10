@@ -5,7 +5,7 @@
       - openvpn
       - easy-rsa
       - iptables-persistent # Чтобы правила firewall сохранялись после перезагрузки
-      - ufw   #не нужно???
+    #  - ufw   #не нужно???
     state: present
     update_cache: yes
 
@@ -20,6 +20,7 @@
     - /etc/openvpn/easy-rsa
 
 - name: Копирование easy-rsa
+  when: not ansible_check_mode #игнерировать когда используется в режиме --check
   copy:
     src: /usr/share/easy-rsa/
     dest: /etc/openvpn/easy-rsa/
@@ -33,32 +34,30 @@
     ./easyrsa init-pki   # Создаем пустую папку для паспортов
     
     # Создание CA (без пароля) (чтобы Ansible мог автоматизировать)
-    echo "{{ ca_common_name }}" | ./easyrsa build-ca nopass 
-  #./roles/openvpn-server/vars/main.yml:2:ca_common_name: "OpenVPN-CA". nopass для автоматизации  ansible, в другом случае так делать НЕ НУЖНО! Для действий с центром сертификации. Создает ОТКРЫЙ КЛЮЧ удостоверяющего центра  /etc/openvpn/easy-rsa/pki/ca.crt
-
+    echo "{{ ca_common_name }}" | ./easyrsa build-ca nopass  #./roles/openvpn-server/vars/main.yml:2:ca_common_name: "OpenVPN-CA". nopass для автоматизации  ansible, в другом случае так делать НЕ НУЖНО! Для действий с центром сертификации. Создает ОТКРЫЙ КЛЮЧ удостоверяющего центра  /etc/openvpn/easy-rsa/pki/ca.crt
     # Генерация сертификата сервера
-    ./easyrsa gen-req server nopass # Создает сертификат для нашего сервера OVPN  
+    echo "" | ./easyrsa gen-req server nopass # Создает сертификат для нашего сервера OVPN,  echo "" нужно,  так как при генерации сертияиката идет запрос Common Name. создаются два сертификата /etc/openvpn/easy-rsa/pki/reqs/server.req (публичный) и /etc/openvpn/easy-rsa/pki/private/server.key (приватный)  
     echo "yes" | ./easyrsa sign-req server server #С помощью echo "yes" автоматизировано под Ansible, подписываем запрос на создание сертификата. И получаем сертификат /etc/openvpn/easy-rsa/pki/issued/server.crt
     
     # Генерация DH параметров
-    ./easyrsa gen-dh
+    ./easyrsa gen-dh # /etc/openvpn/easy-rsa/pki/dh.pem генерирует параметры Диффи-Хеллмана (Diffie-Hellman parameters) — это важный компонент безопасности OpenVPN.
     
     # Генерация сертификата клиента
-    ./easyrsa gen-req client nopass #Создает сертификат для нашего клиента OVPN, машины VM2 c веб сервером   
+    echo "" | ./easyrsa gen-req client nopass # echo "" нужно,  так как при генерации сертияиката идет запр    ос Common Name. Создает сертификат для нашего клиента OVPN, машины VM2 c веб сервером /etc/openvpn/easy-rsa/pki/reqs/client.req(публичный) и /etc/openvpn/easy-rsa/pki/private/client.key (приватный)   
     echo "yes" | ./easyrsa sign-req client client #С помощью echo "yes" автоматизировано под Ansible, подписываем запрос на создание сертификата. И получаем сертификат /etc/openvpn/easy-rsa/pki/issued/client.crt
     
     # Генерация TLS ключа
-    cd /etc/openvpn/server
-  openvpn --genkey --secret ta.key # Создаем дополнительный публичный  TLS  ключ для защиты между клиентом и сервером  
+    bash -c 'cd /etc/openvpn/server && /usr/sbin/openvpn --genkey secret ta.key' # Создаем дополнительный публичный  TLS  ключ для защиты между клиентом и сервером
   args:
     creates: /etc/openvpn/easy-rsa/pki/ca.crt
   register: cert_gen
 
 - name: Копирование сертификатов в рабочую директорию
+  when: not ansible_check_mode #игнерировать когда используется в режиме --check
   copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    remote_src: yes
+    remote_src: yes #указывает на то что источник файла находится так же на удаленной машине, а не на хосте Ansible.
     mode: "{{ item.mode }}"
   loop:
     - { src: '/etc/openvpn/easy-rsa/pki/ca.crt', dest: '/etc/openvpn/server/ca.crt', mode: '0644' }                     # Открытый ключ центра сертификации
@@ -79,19 +78,23 @@
     - { src: '/etc/openvpn/server/ta.key', dest: 'ta.key' }                                                             #Публичный TLS ключ сервера OPVPN
 
 - name: Настройка конфигурации OpenVPN сервера
+  when: not ansible_check_mode #игнерировать когда используется в режиме --check
   template:
     src: server.conf.j2
     dest: /etc/openvpn/server.conf
     mode: '0644'
-  notify: restart openvpn
+  notify: restart openvpn # Запускает hendler, который перезапускает сервер OVPN после добавления конфигурационного файла 
 
 - name: Включение IP форвардинга
+  when: not ansible_check_mode #игнерировать когда используется в режиме --check
   sysctl:
     name: net.ipv4.ip_forward
     value: '1'
     sysctl_set: yes
-    permanent: yes
+    #permanent: yes # не работает!!! хотя должен поддерживаться ansible 2.10+ версии!!! Сохраняет изменение в конфигурационный файл (обычно /etc/sysctl.conf), чтобы параметр сохранился после перезагрузки.
     reload: yes
+    state: present
+    sysctl_file: /etc/sysctl.conf
 
 - name: Настройка iptables (NAT и проброс портов)
   template:
@@ -105,6 +108,7 @@
   when: ansible_default_ipv4.address is defined
 
 - name: Запуск OpenVPN сервера
+  when: not ansible_check_mode #игнерировать когда используется в режиме --check
   systemd:
     name: openvpn@server
     enabled: yes

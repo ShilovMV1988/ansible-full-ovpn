@@ -41,21 +41,14 @@
       exit 0
     fi
 
-    # Создание VM
     qm clone {{ vm_template_id }} {{ vm2_id }} --name {{ vm2_name }} --full
-
-    # Выделение ресурсов и сетевых адаптеров
     qm set {{ vm2_id }} --memory {{ vm_memory }} --cores {{ vm_cores }}
     qm set {{ vm2_id }} --net0 virtio,bridge=vmbr1 #{{ bridge_name }}
-    # Настройка cloud-init
-    qm set {{ vm2_id }} --bootdisk scsi0                   #Сделать загрузочным диск scsi0
-    qm set {{ vm2_id }} --serial0 socket --vga serial0     #и без этого рабоатет!)))
-    # Настройка IP через cloud-init
-    qm set 111 --ipconfig0 ip=10.10.1.20/24,qw=10.10.1.10   # ЭТА СТРОКА НЕ СРАБАТЫВАЕТ!!! ip={{ vm2_internal_ip }}/{{ bridge_netmask }},qw={{ vm1_internal_ip }}
+    qm set {{ vm2_id }} --bootdisk scsi0                                  #Сделать загрузочным диск scsi0
+    qm set {{ vm2_id }} --serial0 socket --vga serial0                    #и без этого рабоатет!)))
+    qm set 111 --ipconfig0  ip={{ vm2_internal_ip }}/{{ bridge_netmask }},gw={{ vm1_internal_ip }}
     qm set {{ vm2_id }} --ciuser max  --cipassword qwe123
     qm set {{ vm2_id }} --cicustom "user=local:snippets/ssh_copy.yml"   #cloud-init файл, который пробрасывает ssh ключ в гостевые виртуальные машины 
-
-    # Запуск VM
     qm start {{ vm2_id }}
   args:
     executable: /bin/bash
