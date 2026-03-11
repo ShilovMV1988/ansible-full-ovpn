@@ -1,0 +1,24 @@
+- name: Проверить, есть ли уже SSH-доступ с VM1 на VM2
+  shell: ssh -o ConnectTimeout=5 -o BatchMode=yes max@10.10.1.20 "echo OK"
+  register: ssh_check
+  delegate_to: vm1
+  ignore_errors: yes
+  changed_when: false
+      
+- name: Копировать SSH ключ с VM1 на VM2 (если доступа нет)
+  shell: |
+    export SSHPASS='qwe123'
+    sshpass -e ssh-copy-id -i /home/max/.ssh/id_rsa.pub -o StrictHostKeyChecking=no max@10.10.1.20
+  delegate_to: vm1
+  when: ssh_check is failed
+      
+- name: Проверить успешность копирования
+  shell: ssh -o ConnectTimeout=5 max@10.10.1.20 "echo 'SSH key works'"
+  delegate_to: vm1
+  register: ssh_final_check
+  when: ssh_check is failed
+      
+- name: Результат проверки
+  debug:
+    msg: "SSH-доступ с VM1 на VM2 {{ 'установлен' if ssh_final_check is success else 'НЕ установлен' }}"
+  when: ssh_check is failed

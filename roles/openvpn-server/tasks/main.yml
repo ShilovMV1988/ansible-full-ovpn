@@ -2,6 +2,7 @@
 - name: Установка пакетов
   apt:
     name:
+      - sshpass
       - openvpn
       - easy-rsa
       - iptables-persistent # Чтобы правила firewall сохранялись после перезагрузки
@@ -114,7 +115,6 @@
     enabled: yes
     state: started
 
-# roles/openvpn-server/tasks/download-packages.yml
 - name: Создание директории для пакетов на VM1
   file:
     path: /tmp/openvpn-packages
@@ -145,3 +145,10 @@
   args:
     creates: /tmp/openvpn-packages/openvpn*.deb
   register: packages_downloaded
+
+- name: Генерация ssh ключей на вервере VM1
+  import_tasks: ssh-keygen.yml 
+
+- name: Изменение имени сервера 
+  import_tasks: chhostname.yml
+

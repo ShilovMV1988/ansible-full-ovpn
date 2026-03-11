@@ -1,0 +1,25 @@
+- name: Убедиться, что директория .ssh существует
+  ansible.builtin.file:
+     path: "~/.ssh"
+     state: directory
+     owner: "max"
+     group: "max"
+     mode: '0700'
+
+- name: Сгенерировать SSH ключ RSA для пользователя
+  community.crypto.openssh_keypair:
+    path: "/home/max/.ssh/id_rsa"
+    owner: "max"
+    group: "max"
+    mode: '0660'  # Приватный ключ должен быть с ограниченными правами
+    type: rsa
+    size: 4096    # Размер ключа
+    comment: "max@{{ ansible_fqdn }}" # Комментарий к ключу
+  register: ssh_key_result
+
+- name: Вывести информацию о сгенерированном ключе
+  ansible.builtin.debug:
+    msg: 
+      - "Публичный ключ: {{ ssh_key_result.public_key }}"
+      - "Отпечаток (fingerprint): {{ ssh_key_result.fingerprint }}"
+      - "Комментарий: {{ ssh_key_result.comment }}"

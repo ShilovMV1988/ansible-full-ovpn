@@ -1,13 +1,9 @@
 ---
-- name: Установка пакетов
-  apt:
-    name:
-      - openvpn
-      - nginx
-      - traceroute
-      - curl
-    state: present
-    update_cache: yes
+- name: Прокидка ssh ключа с VM1 на VM2
+  import_tasks: ssh_copy_id.yml
+
+- name: Установка OVPN Через SSH 
+  import_tasks: in_ovpn.yml
 
 - name: Создание директории для сертификатов
   file:
@@ -55,46 +51,3 @@
   retries: 3
   until: vpn_check is success
 
-- name: Настройка Nginx на порт 443
-  template:
-    src: nginx.conf.j2
-    dest: /etc/nginx/sites-available/default
-  notify: restart nginx
-
-- name: Создание HTML страницы
-  template:
-    src: index.html.j2
-    dest: /var/www/html/index.html
-    mode: '0644'
-
-- name: Запуск Nginx
-  systemd:
-    name: nginx
-    enabled: yes
-    state: started
-
-- name: Удаление маршрута по умолчанию через внутреннюю сеть
-  command: ip route del default via {{ internal_gateway }}
-  ignore_errors: yes
-
-- name: Добавление маршрута до внутренней сети (чтобы Anissanble не потерял связь)
-  command: ip route add {{ internal_network }} via {{ internal_gateway }} dev eth0
-  ignore_errors: yes
-
-- name: Проверка маршрута через VPN
-  command: ip route get 8.8.8.8
-  register: route_check
-  changed_when: false
-
-- name: Вывод информации о маршруте
-  debug:
-    msg: "Маршрут через VPN: {{ route_check.stdout }}"
-
-- name: Проверка доступности интернета через VPN
-  command: ping -c 3 8.8.8.8
-  register: ping_check
-  ignore_errors: yes
-
-- name: Результат проверки
-  debug:
-    msg: "{{ ping_check.stdout_lines if ping_check is success else 'Пинг не работает' }}"

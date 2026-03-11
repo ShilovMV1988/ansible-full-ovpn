@@ -1,0 +1,30 @@
+- name: Проверка наличия OpenVPN в системе
+  command: which openvpn
+  register: openvpn_exists
+  ignore_errors: yes
+  changed_when: false
+
+
+- name: Создать директорию для пакетов на VM2
+  file:
+    path: /tmp/openvpn-packages
+    state: directory
+  become: no #ВАЖНО!!! Если не отключить become, то файлы будут копироваться от пользователя root, а его ключа нет на VM2, только max
+  when: openvpn_exists is failed
+      
+- name: Скопировать пакеты с VM1 на VM2 через scp
+  shell: |
+    export SSHPASS='qwe123'
+    sshpass -e scp -o StrictHostKeyChecking=no  /tmp/openvpn-packages/*.deb  max@10.10.1.20:/tmp/openvpn-packages
+  delegate_to: vm1
+  become: no #ВАЖНО!!! Если не отключить become, то файлы будут копироваться от пользователя root, а его ключа нет на VM2, только max
+  when: openvpn_exists is failed
+  register: scp_result
+  ignore_errors: no
+
+- name: Установить пакеты на VM2
+  shell: |
+    echo "Y" |  dpkg -i /tmp/openvpn-packages/*.deb
+  when: openvpn_exists is failed
+  register: install_result
+  ignore_errors: yes

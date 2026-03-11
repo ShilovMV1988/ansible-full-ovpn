@@ -1,0 +1,20 @@
+- name: Проверить, есть ли уже SSH-доступ с VM1 на VM2                                                                                                  
+  shell: ssh -o ConnectTimeout=5 -o BatchMode=yes max@10.10.1.20 "echo OK"
+  register: ssh_check
+  delegate_to: vm1
+  ignore_errors: yes
+  changed_when: false
+
+- name: Прочитать ключ с VM1
+  slurp:
+    src: /home/max/.ssh/id_rsa.pub
+  register: vm1_pub_key
+  delegate_to: vm1
+  when: ssh_check is failed
+
+- name: Добавить ключ на VM2
+  authorized_key:
+    user: max
+    state: present
+    key: "{{ vm1_pub_key.content | b64decode }}"
+  when: ssh_check is failed

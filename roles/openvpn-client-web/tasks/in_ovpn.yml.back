@@ -1,0 +1,42 @@
+- name: Проверка наличия OpenVPN в системе
+  command: which openvpn
+  register: openvpn_exists
+  ignore_errors: yes
+  changed_when: false
+
+- name: Скопировать пакеты с VM1 на VM2
+  synchronize:
+    src: /tmp/openvpn-packages/
+    dest: /tmp/openvpn-packages/
+    mode: push
+  delegate_to: vm1
+  when: openvpn_exists is failed
+
+- name: Установить пакеты на VM2
+  shell: |
+    sudo dpkg -i /tmp/openvpn-packages/*.deb
+  when: openvpn_exists is failed
+  register: install_result
+  ignore_errors: yes
+
+
+- name: Создать директорию для пакетов на VM2
+      file:
+        path: /tmp/openvpn-packages
+        state: directory
+      when: openvpn_exists is failed
+      
+    - name: Скопировать пакеты с VM1 на VM2
+      synchronize:
+        src: /tmp/openvpn-packages/
+        dest: /tmp/openvpn-packages/
+        mode: pull
+      delegate_to: vm1
+      when: openvpn_exists is failed
+      
+    - name: Установить пакеты на VM2
+      shell: |
+        sudo dpkg -i /tmp/openvpn-packages/*.deb
+      when: openvpn_exists is failed
+      register: install_result
+      ignore_errors: yes

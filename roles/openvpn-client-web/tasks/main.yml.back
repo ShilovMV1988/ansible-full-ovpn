@@ -1,0 +1,100 @@
+---
+- name: Установка пакетов
+  apt:
+    name:
+      - openvpn
+      - nginx
+      - traceroute
+      - curl
+    state: present
+    update_cache: yes
+
+- name: Создание директории для сертификатов
+  file:
+    path: /etc/openvpn/client
+    state: directory
+    mode: '0755'
+
+- name: Копирование сертификатов с control node
+  copy:
+    src: "{{ playbook_dir }}/files/certs/{{ item }}"
+    dest: "/etc/openvpn/client/{{ item }}"
+    mode: '0600'
+  loop:
+    - ca.crt
+    - client.crt
+    - client.key
+    - ta.key
+
+- name: Настройка OpenVPN клиента
+  template:
+    src: client.conf.j2
+    dest: /etc/openvpn/client.conf
+    mode: '0644'
+  notify: restart openvpn-client
+
+- name: Скрипт для обновления DNS
+  template:
+    src: update-resolv-conf.sh.j2
+    dest: /etc/openvpn/update-resolv-conf
+    mode: '0755'
+
+- name: Запуск OpenVPN клиента
+  systemd:
+    name: openvpn@client
+    enabled: yes
+    state: started
+
+- name: Ожидание поднятия VPN
+  wait_for:
+    host: "{{ vpn_server_ip }}"
+    port: 1194
+    delay: 10
+    timeout: 60
+  register: vpn_check
+  retries: 3
+  until: vpn_check is success
+
+- name: Настройка Nginx на порт 443
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/sites-available/default
+  notify: restart nginx
+
+- name: Создание HTML страницы
+  template:
+    src: index.html.j2
+    dest: /var/www/html/index.html
+    mode: '0644'
+
+- name: Запуск Nginx
+  systemd:
+    name: nginx
+    enabled: yes
+    state: started
+
+- name: Удаление маршрута по умолчанию через внутреннюю сеть
+  command: ip route del default via {{ internal_gateway }}
+  ignore_errors: yes
+
+- name: Добавление маршрута до внутренней сети (чтобы Anissanble не потерял связь)
+  command: ip route add {{ internal_network }} via {{ internal_gateway }} dev eth0
+  ignore_errors: yes
+
+- name: Проверка маршрута через VPN
+  command: ip route get 8.8.8.8
+  register: route_check
+  changed_when: false
+
+- name: Вывод информации о маршруте
+  debug:
+    msg: "Маршрут через VPN: {{ route_check.stdout }}"
+
+- name: Проверка доступности интернета через VPN
+  command: ping -c 3 8.8.8.8
+  register: ping_check
+  ignore_errors: yes
+
+- name: Результат проверки
+  debug:
+    msg: "{{ ping_check.stdout_lines if ping_check is success else 'Пинг не работает' }}"
