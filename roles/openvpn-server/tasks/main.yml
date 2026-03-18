@@ -82,9 +82,22 @@
   when: not ansible_check_mode #игнерировать когда используется в режиме --check
   template:
     src: server.conf.j2
-    dest: /etc/openvpn/server.conf
+    dest: /etc/openvpn/server/server.conf # В старых версиях (до OpenVPN 2.3 и ранее) использовался путь /etc/openvpn/server.conf 
     mode: '0644'
   notify: restart openvpn # Запускает hendler, который перезапускает сервер OVPN после добавления конфигурационного файла 
+
+#МОЖНО ПЕРЕЙТИ НА НОВЫЙ СТИЛЬ ПОМЕНЯВ ДИРЕКТОРИЮ КОНФИГУРАЦИОННОГО ФАЙЛА! ТАК ЖЕ САМ ДЕМОН НАЗЫАЕТСЯ ПО ДРУГОМУ!
+# Создать директорию
+#sudo mkdir -p /etc/openvpn/client      
+# Переместить конфиг
+#sudo mv /etc/openvpn/server.conf /etc/openvpn/server/server.conf      
+## Обновить службу
+#sudo systemctl stop openvpn@server
+#sudo systemctl disable openvpn@server
+ #sudo systemctl enable openvpn-server@server
+ #sudo systemctl start openvpn-server@server
+
+
 
 - name: Включение IP форвардинга
   when: not ansible_check_mode #игнерировать когда используется в режиме --check

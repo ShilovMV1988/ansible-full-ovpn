@@ -25,9 +25,21 @@
 - name: Настройка OpenVPN клиента
   template:
     src: client.conf.j2
-    dest: /etc/openvpn/client.conf
+    dest: /etc/openvpn/client/client.conf ## В старых версиях (до OpenVPN 2.3 и ранее) использовался путь /etc/openvpn/client.conf
     mode: '0644'
   notify: restart openvpn-client
+#МОЖНО ПЕРЕЙТИ НА НОВЫЙ СТИЛЬ ПОМЕНЯВ ДИРЕКТОРИЮ КОНФИГУРАЦИОННОГО ФАЙЛА! ТАК ЖЕ САМ ДЕМОН НАЗЫАЕТСЯ ПО ДРУГОМУ!
+# Создать директорию
+#sudo mkdir -p /etc/openvpn/client
+
+# Переместить конфиг
+#sudo mv /etc/openvpn/client.conf /etc/openvpn/client/client.conf
+
+# Обновить службу
+#sudo systemctl stop openvpn@client
+#sudo systemctl disable openvpn@client
+#sudo systemctl enable openvpn-client@client
+#sudo systemctl start openvpn-client@client
 
 - name: Скрипт для обновления DNS
   template:
@@ -37,19 +49,19 @@
 
 - name: Запуск OpenVPN клиента
   systemd:
-    name: openvpn@client
+    name: openvpn-client@client #если бы конфиг располагался в старой папке  то сервис назывался бы  openvpn@client
     enabled: yes
     state: started
 
-- name: Ожидание поднятия VPN
-  wait_for:
-    host: "{{ vpn_server_ip }}"
-    port: 1194
-    delay: 10
-    timeout: 60
-  register: vpn_check
-  retries: 3
-  until: vpn_check is success
+#- name: Ожидание поднятия VPN
+#  wait_for:
+#    host: "{{ vpn_server_ip }}"
+#    port: 1194
+#    delay: 10
+#    timeout: 60
+#  register: vpn_check
+#  retries: 3
+#  until: vpn_check is success
 
 
 
@@ -60,7 +72,7 @@
       - traceroute                                                                                                                                      
       - curl
     state: present
-    update_cache: yes
+#    update_cache: yes
 
 - name: Настройка Nginx на порт 443
   template:
